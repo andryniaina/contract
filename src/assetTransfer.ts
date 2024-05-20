@@ -1,7 +1,6 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  */
-// Deterministic JSON.stringify()
 import {
   Context,
   Contract,
@@ -11,188 +10,151 @@ import {
 } from "fabric-contract-api";
 import stringify from "json-stringify-deterministic";
 import sortKeysRecursive from "sort-keys-recursive";
-import { Asset } from "./asset";
+
+interface Vote {
+  VoterID: string;
+  CandidateID: string;
+  Station: string;
+}
 
 @Info({
-  title: "AssetTransfer",
-  description: "Smart contract for trading assets",
+  title: "AssetContract",
+  description: "Smart contract for a voting application",
 })
 export class AssetTransferContract extends Contract {
   @Transaction()
   public async InitLedger(ctx: Context): Promise<void> {
-    const assets: Asset[] = [
+    const votes: Vote[] = [
       {
-        ID: "asset1",
-        Color: "blue",
-        Size: 5,
-        Owner: "Androuz",
-        AppraisedValue: 300,
+        VoterID: "voter1",
+        CandidateID: "candidate1",
+        Station: "station1",
       },
       {
-        ID: "asset2",
-        Color: "red",
-        Size: 5,
-        Owner: "Brad",
-        AppraisedValue: 400,
-      },
-      {
-        ID: "asset3",
-        Color: "green",
-        Size: 10,
-        Owner: "Jin Soo",
-        AppraisedValue: 500,
-      },
-      {
-        ID: "asset4",
-        Color: "yellow",
-        Size: 10,
-        Owner: "Max",
-        AppraisedValue: 600,
-      },
-      {
-        ID: "asset5",
-        Color: "black",
-        Size: 15,
-        Owner: "Adriana",
-        AppraisedValue: 700,
-      },
-      {
-        ID: "asset6",
-        Color: "white",
-        Size: 15,
-        Owner: "Michel",
-        AppraisedValue: 800,
+        VoterID: "voter2",
+        CandidateID: "candidate2",
+        Station: "station2",
       },
     ];
 
-    for (const asset of assets) {
-      asset.docType = "asset";
-      // example of how to write to world state deterministically
-      // use convetion of alphabetic order
-      // we insert data in alphabetic order using 'json-stringify-deterministic' and 'sort-keys-recursive'
-      // when retrieving data, in any lang, the order of data will be the same and consequently also the corresonding hash
+    for (const vote of votes) {
       await ctx.stub.putState(
-        asset.ID,
-        Buffer.from(stringify(sortKeysRecursive(asset)))
+        vote.VoterID,
+        Buffer.from(stringify(sortKeysRecursive(vote)))
       );
-      console.info(`Asset ${asset.ID} initialized`);
+      console.info(`Vote from ${vote.VoterID} initialized`);
     }
   }
 
-  // CreateAsset issues a new asset to the world state with given details.
   @Transaction()
-  public async CreateAsset(
+  public async RegisterVote(
     ctx: Context,
-    id: string,
-    color: string,
-    size: number,
-    owner: string,
-    appraisedValue: number
+    voterID: string,
+    candidateID: string,
+    station: string
   ): Promise<void> {
-    const exists = await this.AssetExists(ctx, id);
+    const exists = await this.VoteExists(ctx, voterID);
     if (exists) {
-      throw new Error(`The asset ${id} already exists`);
+      throw new Error(`The vote from voter ${voterID} already exists`);
     }
 
-    const asset = {
-      ID: id,
-      Color: color,
-      Size: size,
-      Owner: owner,
-      AppraisedValue: appraisedValue,
+    const vote: Vote = {
+      VoterID: voterID,
+      CandidateID: candidateID,
+      Station: station,
     };
-    // we insert data in alphabetic order using 'json-stringify-deterministic' and 'sort-keys-recursive'
     await ctx.stub.putState(
-      id,
-      Buffer.from(stringify(sortKeysRecursive(asset)))
+      voterID,
+      Buffer.from(stringify(sortKeysRecursive(vote)))
     );
   }
 
-  // ReadAsset returns the asset stored in the world state with given id.
   @Transaction(false)
-  public async ReadAsset(ctx: Context, id: string): Promise<string> {
-    const assetJSON = await ctx.stub.getState(id); // get the asset from chaincode state
-    if (!assetJSON || assetJSON.length === 0) {
-      throw new Error(`The asset ${id} does not exist`);
+  public async ReadVote(ctx: Context, voterID: string): Promise<string> {
+    const voteJSON = await ctx.stub.getState(voterID); // get the vote from chaincode state
+    if (!voteJSON || voteJSON.length === 0) {
+      throw new Error(`The vote from voter ${voterID} does not exist`);
     }
-    return assetJSON.toString();
+    return voteJSON.toString();
   }
 
-  // UpdateAsset updates an existing asset in the world state with provided parameters.
   @Transaction()
-  public async UpdateAsset(
+  public async UpdateVote(
     ctx: Context,
-    id: string,
-    color: string,
-    size: number,
-    owner: string,
-    appraisedValue: number
+    voterID: string,
+    candidateID: string,
+    station: string
   ): Promise<void> {
-    const exists = await this.AssetExists(ctx, id);
+    const exists = await this.VoteExists(ctx, voterID);
     if (!exists) {
-      throw new Error(`The asset ${id} does not exist`);
+      throw new Error(`The vote from voter ${voterID} does not exist`);
     }
 
-    // overwriting original asset with new asset
-    const updatedAsset = {
-      ID: id,
-      Color: color,
-      Size: size,
-      Owner: owner,
-      AppraisedValue: appraisedValue,
+    // overwriting original vote with new vote
+    const updatedVote: Vote = {
+      VoterID: voterID,
+      CandidateID: candidateID,
+      Station: station,
     };
-    // we insert data in alphabetic order using 'json-stringify-deterministic' and 'sort-keys-recursive'
-    return ctx.stub.putState(
-      id,
-      Buffer.from(stringify(sortKeysRecursive(updatedAsset)))
+    await ctx.stub.putState(
+      voterID,
+      Buffer.from(stringify(sortKeysRecursive(updatedVote)))
     );
   }
 
-  // DeleteAsset deletes an given asset from the world state.
   @Transaction()
-  public async DeleteAsset(ctx: Context, id: string): Promise<void> {
-    const exists = await this.AssetExists(ctx, id);
+  public async DeleteVote(ctx: Context, voterID: string): Promise<void> {
+    const exists = await this.VoteExists(ctx, voterID);
     if (!exists) {
-      throw new Error(`The asset ${id} does not exist`);
+      throw new Error(`The vote from voter ${voterID} does not exist`);
     }
-    return ctx.stub.deleteState(id);
+    await ctx.stub.deleteState(voterID);
   }
 
-  // AssetExists returns true when asset with given ID exists in world state.
   @Transaction(false)
   @Returns("boolean")
-  public async AssetExists(ctx: Context, id: string): Promise<boolean> {
-    const assetJSON = await ctx.stub.getState(id);
-    return assetJSON && assetJSON.length > 0;
+  public async VoteExists(ctx: Context, voterID: string): Promise<boolean> {
+    const voteJSON = await ctx.stub.getState(voterID);
+    return voteJSON && voteJSON.length > 0;
   }
 
-  // TransferAsset updates the owner field of asset with given id in the world state, and returns the old owner.
-  @Transaction()
-  public async TransferAsset(
-    ctx: Context,
-    id: string,
-    newOwner: string
-  ): Promise<string> {
-    const assetString = await this.ReadAsset(ctx, id);
-    const asset = JSON.parse(assetString);
-    const oldOwner = asset.Owner;
-    asset.Owner = newOwner;
-    // we insert data in alphabetic order using 'json-stringify-deterministic' and 'sort-keys-recursive'
-    await ctx.stub.putState(
-      id,
-      Buffer.from(stringify(sortKeysRecursive(asset)))
-    );
-    return oldOwner;
-  }
-
-  // GetAllAssets returns all assets found in the world state.
   @Transaction(false)
   @Returns("string")
-  public async GetAllAssets(ctx: Context): Promise<string> {
-    const allResults = [];
-    // range query with empty string for startKey and endKey does an open-ended query of all assets in the chaincode namespace.
+  public async GetVoteStatistics(ctx: Context): Promise<string> {
+    const allResults = {};
     const iterator = await ctx.stub.getStateByRange("", "");
     let result = await iterator.next();
+
+    while (!result.done) {
+      const strValue = Buffer.from(result.value.value.toString()).toString(
+        "utf8"
+      );
+      let vote: Vote;
+      try {
+        vote = JSON.parse(strValue);
+      } catch (err) {
+        console.log(err);
+        result = await iterator.next();
+        continue;
+      }
+
+      if (!allResults[vote.CandidateID]) {
+        allResults[vote.CandidateID] = 0;
+      }
+      allResults[vote.CandidateID] += 1;
+
+      result = await iterator.next();
+    }
+    return JSON.stringify(allResults);
+  }
+
+  @Transaction(false)
+  @Returns("string")
+  public async GetAllVotes(ctx: Context): Promise<string> {
+    const allResults = [];
+    const iterator = await ctx.stub.getStateByRange("", "");
+    let result = await iterator.next();
+
     while (!result.done) {
       const strValue = Buffer.from(result.value.value.toString()).toString(
         "utf8"
