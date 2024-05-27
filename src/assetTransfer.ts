@@ -171,4 +171,16 @@ export class AssetTransferContract extends Contract {
     }
     return JSON.stringify(allResults);
   }
+
+  @Transaction()
+  public async DeleteAllVotes(ctx: Context): Promise<void> {
+    const iterator = await ctx.stub.getStateByRange("", "");
+    let result = await iterator.next();
+
+    while (!result.done) {
+      await ctx.stub.deleteState(result.value.key);
+      result = await iterator.next();
+    }
+    console.info("All votes have been deleted");
+  }
 }
